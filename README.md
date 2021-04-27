@@ -1,5 +1,5 @@
 # 3D-Engine-2.0
-A realtime triangle restrizer and shader written in C++. Supports object files only for rendering. Gives full angle 3D perspective with mouse movements.
+A realtime triangle restrizer and shader written in C++. Supports object files only for rendering and have been tested to render upto 100,000 triangles in realtime. Gives full angle 3D perspective with mouse movements.
 
 # Pre-requisites
 * MingW32 g++ Compiler
