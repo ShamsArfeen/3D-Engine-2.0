@@ -4,13 +4,13 @@ A realtime triangle restrizer and shader written in C++. Supports object files o
 # Pre-requisites
 * MingW32 g++ Compiler
 * SDL 2.0
-* OpenMP
+* Pthread
 
 # How To Run
 Compile binary using following cmd:
 
 ``
-g++ -g *.cpp -lmingw32 -lSDL2main -lSDL2 -fopenmp
+g++ -g *.cpp -lmingw32 -lSDL2main -lSDL2 -lpthread
 ``
 
 After invoking the executable, it will ask for an .obj filename to load.
