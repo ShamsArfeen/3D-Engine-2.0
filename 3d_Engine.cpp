@@ -1,6 +1,16 @@
 #include "3D_Header.hpp"
+#include <stdint.h>
+#include <omp.h>
+
+
+pthread_mutex_t lock;
 
 using namespace std;
+
+struct argRender {
+    int pID;
+    SDL_Renderer *gRenderer;
+};
 
 void initiate()
 {
@@ -23,7 +33,7 @@ void clear_mat()
 }
 
 void* RotateThread(void * pID) {
-    int iCore = (int)pID;
+    int iCore = (int)(intptr_t)pID;
     for (int i = iCore; i < point_num; i += processor_count)
     {
         float ptx, pty, ptz, pti, temp;
@@ -60,8 +70,9 @@ void rotate_mat(float x, float y)
     sin_p = sin(ini_x), cos_p = cos(ini_x);
     sin_q = sin(ini_y), cos_q = cos(ini_y);
 
+
     for (int i = 0; i < processor_count; i++){
-        pthread_create(&pID, NULL, RotateThread, (void *)i);
+        pthread_create(&pID, NULL, RotateThread, (void *)(intptr_t )i);
     }
     pthread_join(pID, NULL);
 }
@@ -74,53 +85,96 @@ void freeze_mat(float x, float y)
 
 float polygon_pixel(int x, int y, float z, float pgn_a, float pgn_b, float pgn_c, float pgn_d)
 {
-    float line = pgn_a * (x - center_x) + pgn_b * (center_y - y);
-    float denominator = line + pgn_c * eye_size;
-    float numinator = eye_z * line - eye_size * pgn_d;
+    float ptz = pgn_a * (x - center_x) + pgn_b * (center_y - y);
+    float denominator = ptz + pgn_c * eye_size;
+    float numinator = eye_z * ptz - eye_size * pgn_d;
+
     if (denominator == 0) {
         return -100000;
     }
     else {
-        line = numinator / denominator;
-        if (line > z) return z;
-        return line;
+
+        ptz = numinator / denominator;
+        if (ptz > z) return z;
+
+        return ptz;
     }
 }
 
-void* RenderThread(void * pID) {
-    int iCore = (int)pID;
+void* RenderThread(void * arg) {
+    int iCore = ((struct argRender*)arg)->pID;
+    SDL_Renderer *gRenderer = ((struct argRender*)arg)->gRenderer;
     for (int i = iCore; i < polygon_num; i += processor_count)
     {
-        render_polygon(i);
+        render_polygon(i, gRenderer);
+    }
+    return 0;
+}
+
+void* WriteThread(void * pID) {
+    int iCore = (int)(intptr_t)pID;
+    for (int i = iCore; i < 700; i += processor_count) 
+    {
+        for (int j = 0; j < 700; j++)
+        {
+            screen_z[i][j] = -100000;
+        }
     }
     return pID;
 }
 
-void render_surfaces(SDL_Renderer *gRenderer) {
-    pthread_t pID;
-
-    for (int i = 0; i < processor_count; i++){
-        pthread_create(&pID, NULL, RenderThread, (void *)i);
-    }
-    pthread_join(pID, NULL);
-
-    for (int x = 0; x < 700; x++)
-    {
-        for (int y = 0; y < 700; y++)
-        {
-            int texture = screen_p[x][y];
-            screen_p[x][y] = 0;
-            screen_z[x][y] = -100000;
-            SDL_SetRenderDrawColor(gRenderer, texture, texture, texture, 0);
-            SDL_RenderDrawPoint(gRenderer, x, y);
-        }
-    }
+/*void render_surfaces_omp(SDL_Renderer *gRenderer) {
     
+    SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 0);
+    SDL_RenderClear(gRenderer);
+    
+    #pragma omp parallel for
+    for (int i = 0; i < polygon_num; i++) {
+        render_polygon(i, gRenderer);
+    }
+
     // update screen
     SDL_RenderPresent(gRenderer);
+
+    #pragma omp parallel for
+    for (int i = 0; i < polygon_num; i++) {
+        render_polygon(i, gRenderer);
+    }
+}*/
+
+void render_surfaces(SDL_Renderer *gRenderer) {
+
+    pthread_t pID[processor_count];
+    struct argRender* iArg = new struct argRender[processor_count];
+
+    for (int i = 0; i < processor_count; i++) {
+        iArg[i].pID = i;
+        iArg[i].gRenderer = gRenderer;
+        pthread_create(&pID[i], NULL, RenderThread, (void *)&iArg[i]);
+    }
+
+    for (int i = 0; i < processor_count; i++) {
+        pthread_join(pID[i], NULL);
+    }
+    delete iArg;
+
+    // update screen
+    SDL_RenderPresent(gRenderer);
+
+    SDL_SetRenderDrawColor(gRenderer, 0, 0, 0, 0);
+    SDL_RenderClear(gRenderer);
+
+    for (int i = 0; i < processor_count; i++) {
+        pthread_create(&pID[i], NULL, WriteThread, (void *)(intptr_t )i);
+    }    
+    
+    for (int i = 0; i < processor_count; i++) {
+        pthread_join(pID[i], NULL);
+    }
+    
 }
 
-bool render_polygon(int pgn)//, SDL_Renderer *g_Renderer)
+bool render_polygon(int pgn, SDL_Renderer *g_Renderer)// int iCore)
 {
     //get_pgn_constants(pgn);
     float pt1x, pt1y, pt1z;
@@ -146,37 +200,32 @@ bool render_polygon(int pgn)//, SDL_Renderer *g_Renderer)
     float pgn_a = pt3z * pt1y - pt1z * pt3y + pt2z * pt3y - pt3z * pt2y - pt2z * pt1y + pt1z * pt2y;
     float pgn_d = pt1x * pt2z * pt3y - pt2z * pt3x * pt1y - pt1z * pt2x * pt3y + pt2y * pt1z * pt3x + pt2x * pt1y * pt3z - pt1x * pt2y * pt3z;
 
-    //float flash = sqrt(flash_x * flash_x + flash_y * flash_y + flash_z * flash_z);
     float triangle = sqrt(pgn_a * pgn_a + pgn_b * pgn_b + pgn_c * pgn_c);
     float reflection = abs(flash_x * pgn_a + flash_y * pgn_b + flash_z * pgn_c);
     float shine = abs(asin(reflection / (triangle * flash)));
 
-    int texture = 7 * pow(16000 * shine + 1000, 0.3);
-    //SDL_SetRenderDrawColor(g_Renderer, texture, texture, texture, 255);
+    int texture = pow(16000 * shine , 0.5);
+    
 
-    int n = i_polygon[pgn].n;
-    int y, pt;//, min_y, max_y, st;
+    int y, pt;
     float xi[3], yi[3];
 
     pt = i_polygon[pgn].pt[0];
     xi[0] = screen_pt[pt].x;
     y = screen_pt[pt].y;
-    //min_y = y;
-    //max_y = y;
+    
     yi[0] = y + 0.5;
     
     pt = i_polygon[pgn].pt[1];
     xi[1] = screen_pt[pt].x;
     y = screen_pt[pt].y;
-    //if (min_y > y) min_y = y;
-    //else if (max_y < y) max_y = y;
+    
     yi[1] = y + 0.5;
     
     pt = i_polygon[pgn].pt[2];
     xi[2] = screen_pt[pt].x;
     y = screen_pt[pt].y;
-    //if (min_y > y) min_y = y;
-    //else if (max_y < y) max_y = y;
+
     yi[2] = y + 0.5;
 
     for (int t = 3; t > 1; t--)
@@ -202,14 +251,10 @@ bool render_polygon(int pgn)//, SDL_Renderer *g_Renderer)
     }
 JUMP:
 
-    //cout << "DEBUG 1" << endl;
-
     y = yi[2] - yi[0] + 1;
     int TRI[2][y], TRISPACE[y], j;
     float slope;
     for (int i = 0; i < y; i++) TRISPACE[i] = 0;
-
-    //cout << "DEBUG 2" << endl;
 
     if (yi[0] != yi[1]) {
         j=0; slope = (xi[0] - xi[1]) / (yi[0] - yi[1]);
@@ -219,8 +264,6 @@ JUMP:
         }
     }
 
-    //cout << "DEBUG 3" << endl;
-
     if (yi[0] != yi[2]) {
         j=0; slope = (xi[0] - xi[2]) / (yi[0] - yi[2]);
         for (int i = yi[0] + 1; i < yi[2]; i++) {
@@ -228,8 +271,6 @@ JUMP:
             TRISPACE[j]++; j++;
         }
     }
-
-    //cout << "DEBUG 4" << endl;
 
     if (yi[1] != yi[2]) {
         j=yi[1] - yi[0]; slope = (xi[1] - xi[2]) / (yi[1] - yi[2]);
@@ -239,45 +280,43 @@ JUMP:
         }
     }
 
-    //cout << "DEBUG 5" << endl;
-
-    //for (int i = 0; i < 3; i++)
-    //    cout << "x " << xi[i] << "  y " << yi[i] << endl;
-    //for (int i = 0; i < y; i++)
-    //    cout << TRI[0][i] << " ---- " << TRI[1][i] << "  :~ " << TRISPACE[i] << endl;
-
     y = yi[0];
+    float temp1 = (float)eye_size / (float)(z + eye_z);
+    
+
     for (int i = 0; i + yi[0] < yi[2]; i++) {
         int x1, x2;
         if (TRISPACE[i] != 2) goto NEXT_i;
         
         x1 = TRI[0][i]; x2 = TRI[1][i];
         if (x2 < x1) { int temp = x2; x2 = x1; x1 = temp; }
-        //cout << "x1=" << x1 << " x2=" << x2 << " TRISPACE[i]=" << TRISPACE[i] << endl;
-        if (x1 > 799 || x1 < 0 || x2 > 799 || x2 < 0)
-            cout << "BAD TRIANGLE DAY" << endl;
 
         for (int x = x1; x <= x2; x++) {
             float i_screen_z = polygon_pixel(x, y, -z, pgn_a, pgn_b, pgn_c, pgn_d);
+            
             if (screen_z[x][y] == -100000 || screen_z[x][y] < i_screen_z)
             {
                 screen_z[x][y] = i_screen_z;
-                screen_p[x][y] = texture;
-                //screen_p[1][screen_ptr] = y;
-                //screen_p[2][screen_ptr] = texture;
-                //screen_ptr++;
-                //SDL_SetRenderDrawColor(g_Renderer, texture, texture, texture, 255);
-                //SDL_RenderDrawPoint(g_Renderer, x, y);
+
+                float ptz = i_screen_z;
+
+                float ptx = (x - center_x) / temp1;
+                float pty = (center_y - y) / temp1;
+                float dis_sqrd = pow((ptx / eye_z - flash_x), 2) 
+                            + pow((pty / eye_z - flash_y), 2) 
+                            + pow((ptz / eye_z - flash_z), 2);
+
+                int color = 6 * texture / dis_sqrd;
+                
+                pthread_mutex_lock(&lock);
+                SDL_SetRenderDrawColor(g_Renderer, color, color, color, 255);
+                SDL_RenderDrawPoint(g_Renderer, x, y);
+                pthread_mutex_unlock(&lock);
             }
         }
     NEXT_i:
         y++;
     }
-    //cout << "DEBUG 6" << endl;
+    
     return true;
-}
-
-void get_surface(int x, int y)
-{
-    cout << " ==== GETTING SURFACE < " << screen_p[x][y] << " > ==== " << endl;
 }

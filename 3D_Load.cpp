@@ -13,7 +13,6 @@ void load_pgn_model()
     cin >> inputFile;
     objFile.open(inputFile);
     cout << "[*] Reading file" << endl;
-    int pt_no = 1;
     float max_x = 0, min_x = 0, max_y = 0, min_y = 0, max_z = 0, min_z = 0;
     hPgnCount = 0;
     poly_space = 1;
@@ -23,9 +22,8 @@ void load_pgn_model()
         //i_polygon = new polygon[1];
         cout << "... [*] File Found" << endl;
         string iData, objElm;
-        while (!objFile.eof())
+        while (getline(objFile, iData))
         {
-            getline(objFile, iData);
             istringstream iSStream(iData);
 
             iSStream >> objElm;
@@ -138,9 +136,9 @@ void load_pgn_model()
         float avg_z = (min_z + max_z) * 0.5;
         for(int i = 0; i < point_num; i++)
         {
-            i_point[i].x = i_point[i].x - avg_x;
+            i_point[i].x = avg_x - i_point[i].x;
             i_point[i].y = i_point[i].y - avg_y;
-            i_point[i].z = i_point[i].z - avg_z;
+            i_point[i].z = avg_z - i_point[i].z;
         }
         avg_x = (min_x - max_x) * 0.5;
         avg_y = (min_y - max_y) * 0.5;
@@ -176,10 +174,10 @@ void load_pgn_model()
     pt3y = i_point[i_polygon[pgn].pt[2]].y;
     pt3z = i_point[i_polygon[pgn].pt[2]].z;
 
-    pgn_c = pt1x * pt3y - pt3x * pt1y - pt2x * pt3y + pt3x * pt2y + pt2x * pt1y - pt1x * pt2y;
-    pgn_b = pt3x * pt1z - pt1x * pt3z + pt2x * pt3z - pt3x * pt2z - pt2x * pt1z + pt1x * pt2z;
-    pgn_a = pt3z * pt1y - pt1z * pt3y + pt2z * pt3y - pt3z * pt2y - pt2z * pt1y + pt1z * pt2y;
-    pgn_d = pt1x * pt2z * pt3y - pt2z * pt3x * pt1y - pt1z * pt2x * pt3y + pt2y * pt1z * pt3x + pt2x * pt1y * pt3z - pt1x * pt2y * pt3z;
+    float pgn_c = pt1x * pt3y - pt3x * pt1y - pt2x * pt3y + pt3x * pt2y + pt2x * pt1y - pt1x * pt2y;
+    float pgn_b = pt3x * pt1z - pt1x * pt3z + pt2x * pt3z - pt3x * pt2z - pt2x * pt1z + pt1x * pt2z;
+    float pgn_a = pt3z * pt1y - pt1z * pt3y + pt2z * pt3y - pt3z * pt2y - pt2z * pt1y + pt1z * pt2y;
+    float pgn_d = pt1x * pt2z * pt3y - pt2z * pt3x * pt1y - pt1z * pt2x * pt3y + pt2y * pt1z * pt3x + pt2x * pt1y * pt3z - pt1x * pt2y * pt3z;
 
     //cout << "A = " << pgn_a << ", B = " << pgn_b << ", C = " << pgn_c << ", D = " << pgn_d << endl;
     if (pgn_d != 0)
@@ -206,6 +204,7 @@ void load_pgn_model()
 
     split:
     //cout << "... YES SPLIT" << endl;
+    int Three = 3;
   
     for (int i = 3; i < i_polygon[pgn].n; i++)
     {*/
@@ -220,7 +219,7 @@ void load_pgn_model()
             poly_space = poly_space * 2;
         }*/
         /*i_polygon[polygon_num].n = 3;
-        i_polygon[polygon_num].pt = new int[3];
+        i_polygon[polygon_num].pt = new int[Three];
         i_polygon[polygon_num].pt[0] = i_polygon[pgn].pt[0];
         i_polygon[polygon_num].pt[1] = i_polygon[pgn].pt[i];
         i_polygon[polygon_num].pt[2] = i_polygon[pgn].pt[i-1];

@@ -3,8 +3,8 @@
 using namespace std;
 
 //Screen dimension constants
-const int SCREEN_WIDTH = 700;
-const int SCREEN_HEIGHT = 700;
+const int SCREEN_WIDTH = 800;
+const int SCREEN_HEIGHT = 800;
 
 //Starts up SDL and creates window
 bool init();
@@ -56,14 +56,6 @@ bool init()
             {
                 //Initialize renderer color
                 SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
-
-                //Initialize PNG loading
-                int imgFlags = IMG_INIT_PNG;
-                if (!(IMG_Init(imgFlags) & imgFlags))
-                {
-                    printf("SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError());
-                    success = false;
-                }
             }
         }
     }
@@ -80,7 +72,6 @@ void close()
     gRenderer = NULL;
 
     //Quit SDL subsystems
-    IMG_Quit();
     SDL_Quit();
 }
 

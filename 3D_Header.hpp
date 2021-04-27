@@ -1,5 +1,4 @@
 #include <SDL.h>
-#include <SDL_image.h>
 
 #include <math.h>
 #include <string>
@@ -9,21 +8,21 @@
 #include <pthread.h>
 #include <thread>
 
-const auto processor_count = std::thread::hardware_concurrency();
+const auto processor_count = SDL_GetCPUCount();
 
-const int eye_size = 1500;
-const int center_x = 350;
-const int center_y = 350;
+const int eye_size = 1600;
+const int center_x = 400;
+const int center_y = 400;
 
-const int flash_x = 5;
-const int flash_y = 5;
-const int flash_z = -10;
+const int flash_x = 1;
+const int flash_y = 1;
+const int flash_z = -2;
 
 const float flash = sqrt(flash_x * flash_x + flash_y * flash_y + flash_z * flash_z);
 
-const int max_vertex = 1000000;
-const int max_line = 1000000;
-const int max_polygon = 1000000;
+const int max_vertex = 5000000;
+const int max_line = 1;
+const int max_polygon = 5000000;
 
 struct polygon { int n, pt[3]; };
 struct point_2d { float x; int y; };
@@ -36,8 +35,9 @@ extern struct point_3d i_point[max_vertex];
 extern struct point_3d r_point[max_vertex];
 extern struct point_2d screen_pt[max_vertex];
 extern int point_num;
-extern float screen_z[700][700];
+extern float screen_z[700][700];//, Pixelz[4][2000000];
 extern int screen_p[700][700];
+//extern int PixelThread[4][3][2000000], PixelThreadPtr[4];
 extern int line_num;
 extern struct line_3d i_line[max_line];
 extern int polygon_num, hPgnCount, poly_space;
@@ -47,7 +47,7 @@ extern float y_rotation, x_rotation;
 
 float polygon_pixel(int x, int y, float z, float pgn_a, float pgn_b, float pgn_c, float pgn_d);
 //void get_pgn_constants(int);
-bool render_polygon(int);//, SDL_Renderer *);
+bool render_polygon(int, SDL_Renderer *);// int);
 void initiate();
 void rotate_mat(float, float);
 void freeze_mat(float, float);
